@@ -308,7 +308,7 @@ impl Dependency {
     /// Constructs a [`Dependency`] from the given type `T`.
     /// If `T` is not exportable (meaning `T::EXPORT_TO` is `None`), this function will return
     /// `None`
-    pub fn from_ty<T: TS>() -> Option<Self> {
+    pub fn from_ty<T: TS + ?Sized>() -> Option<Self> {
         let exported_to = T::EXPORT_TO?;
         Some(Dependency {
             type_id: TypeId::of::<T>(),
@@ -531,15 +531,15 @@ impl_shadow!(as HashMap<K, V>: impl<K: TS, V: TS> TS for BTreeMap<K, V>);
 impl_shadow!(as Vec<T>: impl<T: TS, const N: usize> TS for [T; N]);
 impl_shadow!(as Vec<T>: impl<T: TS> TS for [T]);
 
-impl_wrapper!(impl<T: TS> TS for Box<T>);
-impl_wrapper!(impl<T: TS> TS for std::sync::Arc<T>);
-impl_wrapper!(impl<T: TS> TS for std::rc::Rc<T>);
-impl_wrapper!(impl<T: TS + ToOwned> TS for std::borrow::Cow<'static, T>);
+impl_wrapper!(impl<T: TS + ?Sized> TS for Box<T>);
+impl_wrapper!(impl<T: TS + ?Sized> TS for std::sync::Arc<T>);
+impl_wrapper!(impl<T: TS + ?Sized> TS for std::rc::Rc<T>);
+impl_wrapper!(impl<T: TS + ToOwned + ?Sized> TS for std::borrow::Cow<'static, T>);
 impl_wrapper!(impl<T: TS> TS for std::cell::Cell<T>);
 impl_wrapper!(impl<T: TS> TS for std::cell::RefCell<T>);
 impl_wrapper!(impl<T: TS> TS for std::sync::Mutex<T>);
-impl_wrapper!(impl<T: TS> TS for std::sync::Weak<T>);
-impl_wrapper!(impl<T: TS> TS for std::marker::PhantomData<T>);
+impl_wrapper!(impl<T: TS + ?Sized> TS for std::sync::Weak<T>);
+impl_wrapper!(impl<T: TS + ?Sized> TS for std::marker::PhantomData<T>);
 
 impl_tuples!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
 
