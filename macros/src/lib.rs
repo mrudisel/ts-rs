@@ -5,7 +5,7 @@ use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use syn::{
     parse_quote, spanned::Spanned, ConstParam, GenericParam, Generics, Item, LifetimeDef, Result,
-    TypeParam, WhereClause,
+    TypeParam, WhereClause, Type, GenericArgument,
 };
 
 use crate::deps::Dependencies;
@@ -178,4 +178,34 @@ fn entry(input: proc_macro::TokenStream) -> Result<TokenStream> {
     };
 
     Ok(ts.into_impl(ident, generics))
+}
+
+
+// Remap all lifetimes to 'static in ty.
+struct RemapStaticVisitor;
+
+impl syn::visit_mut::VisitMut for RemapStaticVisitor {
+    fn visit_type_mut(&mut self, ty: &mut Type) {
+        match ty {
+            Type::Reference(ref_type) => {
+                ref_type.lifetime = ref_type
+                    .lifetime
+                    .as_ref()
+                    .map(|_| syn::parse2(quote!('static)).unwrap());
+            }
+            _ => {}
+        }
+        
+        syn::visit_mut::visit_type_mut(self, ty);
+    }
+
+    fn visit_generic_argument_mut(&mut self, ga: &mut GenericArgument) {
+        match ga {
+            GenericArgument::Lifetime(lt) => {
+                *lt = syn::parse2(quote!('static)).unwrap();
+            }
+            _ => {}
+        }
+        syn::visit_mut::visit_generic_argument_mut(self, ga);
+    }
 }
