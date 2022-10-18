@@ -256,6 +256,26 @@ fn multiple_nonstatic_lifetimes() {
 
 
 #[test]
+fn nonstatic_enum() {
+    #[derive(TS)]
+    struct A<'a> {
+        t: &'a str,
+    }
+    
+    #[derive(TS)]    
+    enum Enum<'a> {
+        Static(String),
+        InnerLifetime(A<'a>),
+        Ref(&'a str),       
+    }
+    assert_eq!(
+        Enum::decl(), 
+        "type Enum = { Static: string } | { InnerLifetime: A } | { Ref: string };"
+    );
+}
+
+
+#[test]
 fn nonstatic_lifetimes_with_generic() {
     #[derive(TS)]
     struct B<'a, A> {
