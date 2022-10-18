@@ -233,3 +233,47 @@ fn trait_bounds() {
 
     assert_eq!(D::<&str, 41>::decl(), "interface D<T> { t: Array<T>, }")
 }
+
+
+#[test]
+fn nonstatic_lifetimes() {
+    #[derive(TS)]
+    struct A<'a> {
+        t: &'a str,
+    }
+    assert_eq!(A::decl(), "interface A { t: string, }");
+}
+
+#[test]
+fn multiple_nonstatic_lifetimes() {
+    #[derive(TS)]
+    struct A<'a, 'b> {
+        t: &'a str,
+        b: &'b str,
+    }
+    assert_eq!(A::decl(), "interface A { t: string, b: string, }");
+}
+
+
+#[test]
+fn nonstatic_lifetimes_with_generic() {
+    #[derive(TS)]
+    struct B<'a, A> {
+        t: &'a A,
+    }
+    assert_eq!(B::<i32>::decl(), "interface B<A> { t: A, }");
+}
+
+#[test]
+fn nonstatic_lifetimes_with_child() {
+    #[derive(TS)]
+    struct A<'a> {
+        t: &'a str,
+    }
+
+    #[derive(TS)]
+    struct B<'a> {
+        t: A<'a>,
+    }
+    assert_eq!(B::decl(), "interface B { t: A, }");
+}
