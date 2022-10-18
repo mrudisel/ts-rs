@@ -529,6 +529,7 @@ impl_shadow!(as Vec<T>: impl<T: TS> TS for HashSet<T>);
 impl_shadow!(as Vec<T>: impl<T: TS> TS for BTreeSet<T>);
 impl_shadow!(as HashMap<K, V>: impl<K: TS, V: TS> TS for BTreeMap<K, V>);
 impl_shadow!(as Vec<T>: impl<T: TS, const N: usize> TS for [T; N]);
+impl_shadow!(as Vec<T>: impl<T: TS> TS for [T]);
 
 impl_wrapper!(impl<T: TS> TS for Box<T>);
 impl_wrapper!(impl<T: TS> TS for std::sync::Arc<T>);
@@ -575,8 +576,104 @@ impl_primitives! {
     u8, i8, u16, i16, u32, i32, f32, f64, usize, isize => "number",
     u64, i64, u128, i128 => "bigint",
     bool => "boolean",
-    char, Path, PathBuf, String, &'static str => "string",
+    char, Path, PathBuf, String, str => "string",
     () => "null"
 }
+
+impl<T> TS for &'static T
+where 
+    T: TS + ?Sized
+{
+    const EXPORT_TO: Option<&'static str> = T::EXPORT_TO;
+    
+    fn name() -> String {
+        T::name()
+    }
+    
+    fn decl() -> String {
+        T::decl()
+    }
+    
+    fn inline() -> String {
+        T::inline()
+    }
+    
+    fn inline_flattened() -> String {
+        T::inline_flattened()
+    }
+    
+    fn export() -> Result<(), ExportError> {
+        T::export()
+    }
+    
+    fn export_to(path: impl AsRef<Path>) -> Result<(), ExportError> {
+        T::export_to(path)
+    }
+    
+    fn transparent() -> bool {
+        T::transparent()
+    }
+    
+    fn dependencies() -> Vec<Dependency> {
+        T::dependencies()
+    }
+    
+    fn export_to_string() -> Result<String, ExportError> {
+        T::export_to_string()
+    }
+    
+    fn name_with_type_args(args: Vec<String>) -> String {
+        T::name_with_type_args(args)
+    }
+}
+
+impl<T> TS for &'static mut T
+where 
+    T: TS + ?Sized
+{
+    const EXPORT_TO: Option<&'static str> = T::EXPORT_TO;
+    
+    fn name() -> String {
+        T::name()
+    }
+    
+    fn decl() -> String {
+        T::decl()
+    }
+    
+    fn inline() -> String {
+        T::inline()
+    }
+    
+    fn inline_flattened() -> String {
+        T::inline_flattened()
+    }
+    
+    fn export() -> Result<(), ExportError> {
+        T::export()
+    }
+    
+    fn export_to(path: impl AsRef<Path>) -> Result<(), ExportError> {
+        T::export_to(path)
+    }
+    
+    fn transparent() -> bool {
+        T::transparent()
+    }
+    
+    fn dependencies() -> Vec<Dependency> {
+        T::dependencies()
+    }
+    
+    fn export_to_string() -> Result<String, ExportError> {
+        T::export_to_string()
+    }
+    
+    fn name_with_type_args(args: Vec<String>) -> String {
+        T::name_with_type_args(args)
+    }
+}
+
+
 #[rustfmt::skip]
 pub(crate) use impl_primitives;
