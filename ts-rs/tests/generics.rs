@@ -296,6 +296,16 @@ fn nonstatic_lifetimes_with_child() {
 }
 
 #[test]
+fn field_container_element_with_lifetime() {
+    #[derive(TS)]
+    struct A<'a> {
+        inner: Vec<std::borrow::Cow<'a, str>>,
+    }
+
+    assert_eq!(A::decl(), "interface A { inner: Array<string>, }");
+}
+
+#[test]
 fn flattened_enum_with_lifetime() {
     #[derive(TS, serde::Deserialize)]
     #[serde(bound = "'de: 'a")]

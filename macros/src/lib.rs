@@ -237,16 +237,20 @@ impl syn::visit_mut::VisitMut for RemapStaticVisitor {
                 for segment in path.path.segments.iter_mut() { 
                     if let PathArguments::AngleBracketed(args) = &mut segment.arguments {
                         for arg in args.args.iter_mut() {
-                            if let GenericArgument::Lifetime(lt) = arg {
-                                *lt = syn::parse2(quote!('static)).unwrap();
-                            }
+                            match arg { 
+                                GenericArgument::Lifetime(lt) => {
+                                    *lt = syn::parse2(quote!('static)).unwrap();
+                                },
+                                // recurse any nested types (happens in cases like 'Vec<Cow<'_, str>>')
+                                GenericArgument::Type(ty) => self.visit_type_mut(ty),
+                                _ => {}
+                            }   
                         }
                     }
                 }
             } 
             _ => {}
-        }
-        
+        } 
     }
 
     fn visit_generic_argument_mut(&mut self, ga: &mut GenericArgument) {
