@@ -72,6 +72,7 @@ fn format_variant(
         skip,
         optional,
         flatten,
+        ..
     } = FieldAttr::from_attrs(&variant.attrs)?;
 
     match (skip, &type_override, inline, optional, flatten) {

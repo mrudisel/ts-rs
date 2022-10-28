@@ -1,11 +1,14 @@
+#![feature(let_chains)]
 #![macro_use]
 #![deny(unused)]
+
+use std::borrow::Cow;
 
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use syn::{
-    parse_quote, spanned::Spanned, ConstParam, GenericParam, Generics, Item, LifetimeDef, Result,
-    TypeParam, WhereClause, Type, GenericArgument,
+    parse_quote, spanned::Spanned, ConstParam, GenericArgument, GenericParam, Generics, Item,
+    LifetimeDef, Result, Type, TypeParam, WhereClause, TypeReference, PathArguments,
 };
 
 use crate::deps::Dependencies;
@@ -47,13 +50,20 @@ impl DerivedTS {
     }
 
     fn into_impl(self, rust_ty: Ident, generics: Generics) -> TokenStream {
+        let mut base_path =
+            std::env::var("TS_RS_BASE_EXPORT_PATH").unwrap_or_else(|_| String::new());
+
+        if !base_path.is_empty() && !base_path.ends_with('/') {
+            base_path.push_str("/");
+        }
+
         let export_to = match &self.export_to {
             Some(dirname) if dirname.ends_with('/') => {
-                format!("{}{}.ts", dirname, self.name)
+                format!("{base_path}{}{}.ts", dirname, self.name)
             }
-            Some(filename) => filename.clone(),
+            Some(filename) => format!("{base_path}{filename}"),
             None => {
-                format!("bindings/{}.ts", self.name)
+                format!("{base_path}bindings/{}.ts", self.name)
             }
         };
 
@@ -77,8 +87,7 @@ impl DerivedTS {
                         #t
                     }
                 }
-            })
-            .unwrap_or_else(TokenStream::new);
+            });
 
         let impl_start = generate_impl(&rust_ty, &generics);
         quote! {
@@ -180,23 +189,64 @@ fn entry(input: proc_macro::TokenStream) -> Result<TokenStream> {
     Ok(ts.into_impl(ident, generics))
 }
 
-
 // Remap all lifetimes to 'static in ty.
 struct RemapStaticVisitor;
+
+impl RemapStaticVisitor {
+    fn make_type_static<'a, T>(ty: T) -> Cow<'a, Type>
+    where
+        T: Into<Cow<'a, Type>>,
+    {
+        let mut ty = ty.into();
+        if let Type::Reference(refer) = &*ty 
+            && let Some(lt) = refer.lifetime.as_ref()
+            && lt.ident != "static"
+        {
+            syn::visit_mut::VisitMut::visit_type_mut(&mut Self, ty.to_mut());
+        } else if matches!(*ty, Type::Path(_)) {
+            syn::visit_mut::VisitMut::visit_type_mut(&mut Self, ty.to_mut());            
+        }
+
+        ty
+    }
+
+    #[allow(dead_code)]
+    fn make_generic_static<'a, G>(gen: G) -> Cow<'a, GenericArgument>
+    where
+        G: Into<Cow<'a, GenericArgument>>,
+    {
+        let mut gen: Cow<'a, GenericArgument> = gen.into();
+
+        if let GenericArgument::Lifetime(lt) = &*gen 
+            && lt.ident != "static"
+        {
+            syn::visit_mut::VisitMut::visit_generic_argument_mut(&mut Self, gen.to_mut());
+        }
+
+        gen
+    }
+}
 
 impl syn::visit_mut::VisitMut for RemapStaticVisitor {
     fn visit_type_mut(&mut self, ty: &mut Type) {
         match ty {
-            Type::Reference(ref_type) => {
-                ref_type.lifetime = ref_type
-                    .lifetime
-                    .as_ref()
-                    .map(|_| syn::parse2(quote!('static)).unwrap());
+            Type::Reference(TypeReference { lifetime: Some(lt), .. }) if lt.ident != "static" => {
+                *lt = syn::parse2(quote!('static)).unwrap();
             }
+            Type::Path(path) => {
+                for segment in path.path.segments.iter_mut() { 
+                    if let PathArguments::AngleBracketed(args) = &mut segment.arguments {
+                        for arg in args.args.iter_mut() {
+                            if let GenericArgument::Lifetime(lt) = arg {
+                                *lt = syn::parse2(quote!('static)).unwrap();
+                            }
+                        }
+                    }
+                }
+            } 
             _ => {}
         }
         
-        syn::visit_mut::visit_type_mut(self, ty);
     }
 
     fn visit_generic_argument_mut(&mut self, ga: &mut GenericArgument) {
@@ -206,6 +256,5 @@ impl syn::visit_mut::VisitMut for RemapStaticVisitor {
             }
             _ => {}
         }
-        syn::visit_mut::visit_generic_argument_mut(self, ga);
     }
 }

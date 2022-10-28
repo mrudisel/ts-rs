@@ -234,7 +234,6 @@ fn trait_bounds() {
     assert_eq!(D::<&str, 41>::decl(), "interface D<T> { t: Array<T>, }")
 }
 
-
 #[test]
 fn nonstatic_lifetimes() {
     #[derive(TS)]
@@ -254,26 +253,24 @@ fn multiple_nonstatic_lifetimes() {
     assert_eq!(A::decl(), "interface A { t: string, b: string, }");
 }
 
-
 #[test]
 fn nonstatic_enum() {
     #[derive(TS)]
     struct A<'a> {
         t: &'a str,
     }
-    
-    #[derive(TS)]    
+
+    #[derive(TS)]
     enum Enum<'a> {
         Static(String),
         InnerLifetime(A<'a>),
-        Ref(&'a str),       
+        Ref(&'a str),
     }
     assert_eq!(
-        Enum::decl(), 
+        Enum::decl(),
         "type Enum = { Static: string } | { InnerLifetime: A } | { Ref: string };"
     );
 }
-
 
 #[test]
 fn nonstatic_lifetimes_with_generic() {
@@ -296,4 +293,29 @@ fn nonstatic_lifetimes_with_child() {
         t: A<'a>,
     }
     assert_eq!(B::decl(), "interface B { t: A, }");
+}
+
+#[test]
+fn flattened_enum_with_lifetime() {
+    #[derive(TS, serde::Deserialize)]
+    #[serde(bound = "'de: 'a")]
+    struct A<'a> {
+        id: &'a str,
+        #[serde(flatten)]
+        #[ts(extends)]
+        inner: InnerField<'a>,
+    }
+
+    #[derive(TS, serde::Deserialize)]
+    #[serde(tag = "kind", rename_all = "camelCase")]
+    enum InnerField<'a> {
+        Str { string: &'a str },
+        Num { num: u8 },
+    }
+
+    assert_eq!(
+        InnerField::decl(),
+        "type InnerField = { kind: \"str\", string: string, } | { kind: \"num\", num: number, };"
+    );
+    assert_eq!(A::decl(), "interface A extends { kind: \"str\", string: string, } | { kind: \"num\", num: number, } { id: string, }");
 }

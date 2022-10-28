@@ -1,6 +1,8 @@
+use std::borrow::Cow;
+
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{Type, visit_mut::VisitMut};
+use syn::Type;
 
 use crate::RemapStaticVisitor;
 
@@ -10,8 +12,7 @@ pub struct Dependencies(Vec<TokenStream>);
 impl Dependencies {
     /// Adds all dependencies from the given type
     pub fn append_from(&mut self, ty: &Type) {
-        let mut ty = ty.clone();
-        RemapStaticVisitor.visit_type_mut(&mut ty);
+        let ty = RemapStaticVisitor::make_type_static(Cow::Borrowed(ty));
         self.0
             .push(quote!(dependencies.append(&mut <#ty as ts_rs::TS>::dependencies());));
     }
@@ -19,9 +20,8 @@ impl Dependencies {
     /// Adds the given type if it's *not* transparent.
     /// If it is, all it's child dependencies are added instead.
     pub fn push_or_append_from(&mut self, ty: &Type) {
-        let mut ty = ty.clone();
-        RemapStaticVisitor.visit_type_mut(&mut ty);
-                
+        let ty = RemapStaticVisitor::make_type_static(Cow::Borrowed(ty));
+
         self.0.push(quote! {
             if <#ty as ts_rs::TS>::transparent() {
               dependencies.append(&mut <#ty as ts_rs::TS>::dependencies());

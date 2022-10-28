@@ -1,8 +1,10 @@
+use std::borrow::Cow;
+
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    visit_mut::VisitMut,
-    GenericArgument, GenericParam, Generics, ItemStruct, PathArguments, Type, TypeGroup, TypeTuple, TypeParam,
+    GenericArgument, GenericParam, Generics, ItemStruct, PathArguments, Type, TypeGroup, TypeParam,
+    TypeTuple,
 };
 
 use crate::{attr::StructAttr, deps::Dependencies, RemapStaticVisitor};
@@ -13,8 +15,12 @@ use crate::{attr::StructAttr, deps::Dependencies, RemapStaticVisitor};
 ///
 /// If a default type arg is encountered, it will be added to the dependencies.
 pub fn format_generics(deps: &mut Dependencies, generics: &Generics) -> TokenStream {
-    if generics.params.is_empty() || 
-        generics.params.iter().all(|param| matches!(param, GenericParam::Lifetime(_)))
+    // if there are no generics, or if all generics are lifetimes, there's no TS generics to format.
+    if generics.params.is_empty()
+        || generics
+            .params
+            .iter()
+            .all(|param| matches!(param, GenericParam::Lifetime(_)))
     {
         return quote!("");
     }
@@ -37,22 +43,18 @@ pub fn format_generics(deps: &mut Dependencies, generics: &Generics) -> TokenStr
 }
 
 pub fn format_type(ty: &Type, dependencies: &mut Dependencies, generics: &Generics) -> TokenStream {
-    
-    let mut ty = ty.clone();
-    RemapStaticVisitor.visit_type_mut(&mut ty);
-    
+    let ty = RemapStaticVisitor::make_type_static(Cow::Borrowed(ty));
+
     fn find_generic_param(ty: &Type, param: &TypeParam) -> bool {
         match ty {
             Type::Path(type_path) => {
                 type_path.qself.is_none() && type_path.path.is_ident(&param.ident)
             }
-            Type::Reference(refer) => {
-                find_generic_param(&refer.elem, param)
-            }
+            Type::Reference(refer) => find_generic_param(&refer.elem, param),
             _ => false,
         }
     }
-    
+
     // If the type matches one of the generic parameters, just pass the identifier:
     if let Some(generic_ident) = generics
         .params
@@ -68,7 +70,7 @@ pub fn format_type(ty: &Type, dependencies: &mut Dependencies, generics: &Generi
     }
 
     // special treatment for arrays and tuples
-    match &ty {
+    match &*ty {
         // the field is an array (`[T; n]`) so it technically doesn't have a generic argument.
         // therefore, we handle it explicitly here like a `Vec<T>`
         Type::Array(array) => {
