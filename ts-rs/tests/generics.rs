@@ -233,3 +233,99 @@ fn trait_bounds() {
 
     assert_eq!(D::<&str, 41>::decl(), "interface D<T> { t: Array<T>, }")
 }
+
+#[test]
+fn nonstatic_lifetimes() {
+    #[derive(TS)]
+    struct A<'a> {
+        t: &'a str,
+    }
+    assert_eq!(A::decl(), "interface A { t: string, }");
+}
+
+#[test]
+fn multiple_nonstatic_lifetimes() {
+    #[derive(TS)]
+    struct A<'a, 'b> {
+        t: &'a str,
+        b: &'b str,
+    }
+    assert_eq!(A::decl(), "interface A { t: string, b: string, }");
+}
+
+#[test]
+fn nonstatic_enum() {
+    #[derive(TS)]
+    struct A<'a> {
+        t: &'a str,
+    }
+
+    #[derive(TS)]
+    enum Enum<'a> {
+        Static(String),
+        InnerLifetime(A<'a>),
+        Ref(&'a str),
+    }
+    assert_eq!(
+        Enum::decl(),
+        "type Enum = { Static: string } | { InnerLifetime: A } | { Ref: string };"
+    );
+}
+
+#[test]
+fn nonstatic_lifetimes_with_generic() {
+    #[derive(TS)]
+    struct B<'a, A> {
+        t: &'a A,
+    }
+    assert_eq!(B::<i32>::decl(), "interface B<A> { t: A, }");
+}
+
+#[test]
+fn nonstatic_lifetimes_with_child() {
+    #[derive(TS)]
+    struct A<'a> {
+        t: &'a str,
+    }
+
+    #[derive(TS)]
+    struct B<'a> {
+        t: A<'a>,
+    }
+    assert_eq!(B::decl(), "interface B { t: A, }");
+}
+
+#[test]
+fn field_container_element_with_lifetime() {
+    #[derive(TS)]
+    struct A<'a> {
+        inner: Vec<std::borrow::Cow<'a, str>>,
+    }
+
+    assert_eq!(A::decl(), "interface A { inner: Array<string>, }");
+}
+
+#[test]
+fn flattened_enum_with_lifetime() {
+    #[derive(TS, serde::Deserialize)]
+    #[serde(bound = "'de: 'a")]
+    struct A<'a> {
+        id: &'a str,
+        #[serde(flatten)]
+        #[ts(extends)]
+        inner: InnerField<'a>,
+    }
+
+    #[derive(TS, serde::Deserialize)]
+    #[serde(tag = "kind", rename_all = "camelCase")]
+    enum InnerField<'a> {
+        Str { string: &'a str },
+        Num { num: u8 },
+    }
+
+    assert_eq!(
+        InnerField::decl(),
+        "type InnerField = { kind: \"str\", string: string, } | { kind: \"num\", num: number, };"
+    );
+    assert_eq!(A::decl(), "interface A extends { kind: \"str\", string: string, } | { kind: \"num\", num: number, } { id: string, }");
+}

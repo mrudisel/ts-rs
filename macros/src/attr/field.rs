@@ -11,6 +11,7 @@ pub struct FieldAttr {
     pub skip: bool,
     pub optional: bool,
     pub flatten: bool,
+    pub extends: bool,
 }
 
 #[cfg(feature = "serde-compat")]
@@ -35,6 +36,7 @@ impl FieldAttr {
             skip,
             optional,
             flatten,
+            extends,
         }: FieldAttr,
     ) {
         self.rename = self.rename.take().or(rename);
@@ -43,6 +45,7 @@ impl FieldAttr {
         self.skip = self.skip || skip;
         self.optional |= optional;
         self.flatten |= flatten;
+        self.extends |= extends;
     }
 }
 
@@ -54,6 +57,7 @@ impl_parse! {
         "skip" => out.skip = true,
         "optional" => out.optional = true,
         "flatten" => out.flatten = true,
+        "extends" => out.extends = true,
     }
 }
 
